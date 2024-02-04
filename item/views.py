@@ -5,6 +5,14 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .forms import NewItemForm, EditItemForm
 from .models import Category, Item
 
+from .serializers import CategorySerializer ,ItemSerializer
+from django.http import JsonResponse
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+
+        
 def items(request):
     query = request.GET.get('query', '')
     category_id = request.GET.get('category', 0)
@@ -17,13 +25,26 @@ def items(request):
     if query:
         items = items.filter(Q(name__icontains=query) | Q(description__icontains=query))
 
-    return render(request, 'item/items.html', {
-        'items': items,
+    # Serialize items and categories using Django Rest Framework serializers
+    serialized_items = ItemSerializer
+    serialized_categories = CategorySerializer(categories, many=True).data
+
+    return JsonResponse({
+        'items': serialized_items,
         'query': query,
-        'categories': categories,
+        'categories': serialized_categories,
         'category_id': int(category_id)
     })
 
+class ItemDetailView(APIView):
+    def get(self, request, item_id):
+        try:
+            item = Item.objects.get(pk=item_id)
+            serializer = ItemSerializer(item)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Item.DoesNotExist:
+            return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
+            
 def detail(request, pk):
     item = get_object_or_404(Item, pk=pk)
     related_items = Item.objects.filter(category=item.category, is_sold=False).exclude(pk=pk)[0:3]
