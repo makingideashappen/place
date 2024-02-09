@@ -11,8 +11,30 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
+class ItemListView(APIView):
+    def get(self, request):
+        query = request.GET.get('query', '')
+        category_id = request.GET.get('category', 0)
+        categories = Category.objects.all()
+        items = Item.objects.filter(is_sold=False)
 
-        
+        if category_id:
+            items = items.filter(category_id=category_id)
+
+        if query:
+            items = items.filter(Q(name__icontains=query) | Q(description__icontains=query))
+
+        serializer = ItemSerializer(items, many=True)
+
+        data = {
+            'items': serializer.data,
+            'query': query,
+            'categories': categories.values(),  # Convert queryset to list
+            'category_id': int(category_id)
+        }
+
+        return Response(data, status=status.HTTP_200_OK)
+       
 def items(request):
     query = request.GET.get('query', '')
     category_id = request.GET.get('category', 0)
